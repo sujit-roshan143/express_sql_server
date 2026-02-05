@@ -1,0 +1,52 @@
+import { hashpasswords,passwordscheck } from "../utils/hash.js";
+import { createToken }  from "../utils/token.js";
+
+import AuthUserModel from "../Model/authUserModel.js"; 
+
+export const UserSignup = async (req, res) => {
+    try {
+        const { name, email, passwords, role } = req.body;
+        const checkEmail = await AuthUserModel.UserLoginModel(email);
+
+        if (checkEmail) {
+            return res.status(400).json({ message: "email already exist" });
+        }
+
+        const newPassword = await hashpasswords(passwords);
+
+        const Userid = await AuthUserModel.UserSignupModel({
+            name: name,
+            email: email,
+            passwords: newPassword,
+            role: role || 'user',
+        });
+
+        res.status(201).json({
+            message: "user has been created",
+            Userid: Userid,
+        });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+}
+
+export const authLogin = async (req, res) => {
+    try {
+        const { email, passwords } = req.body;
+        const user = await AuthUserModel.UserLoginModel(email);
+
+        if (!user) {
+            return res.status(400).json({ message: "invalid email or password" });
+        }
+
+        const passwordMatch = await passwordscheck(passwords, user.passwords);
+        if (!passwordMatch) {
+            return res.status(400).json({ message: "wrong password" });
+        }
+
+        const token = createToken({ id: user.id, role: user.role });
+        res.status(200).json({ message: "login successful", token });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+};
